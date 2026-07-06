@@ -1,34 +1,34 @@
 from flask import Flask, request, jsonify
+import json
+import os
 
 app = Flask(__name__)
 
-products = []
-
 @app.route("/")
 def home():
-    return {
-        "status": "online",
-        "app": "OfferPing",
-        "version": "1.0"
-    }
+    return jsonify({"status": "online"})
 
-@app.route("/save-product", methods=["POST"])
-def save_product():
-    data = request.get_json()
+@app.route("/track", methods=["POST"])
+def track():
+    data = request.json
 
-    products.append({
-        "url": data.get("url"),
-        "target_price": data.get("target_price")
-    })
+    if os.path.exists("products.json"):
+        with open("products.json", "r") as f:
+            products = json.load(f)
+    else:
+        products = []
 
-    return jsonify({
-        "success": True,
-        "message": "Product saved!"
-    })
+    products.append(data)
 
-@app.route("/products", methods=["GET"])
-def get_products():
-    return jsonify(products)
+    with open("products.json", "w") as f:
+        json.dump(products, f, indent=4)
+
+    return jsonify({"message": "Product added!"})
+
+@app.route("/products")
+def products():
+    with open("products.json", "r") as f:
+        return jsonify(json.load(f))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
