@@ -1,10 +1,39 @@
 from playwright.sync_api import sync_playwright
+import json
+import requests
+import re
 
-url = "https://dl.flipkart.com/dl/hp-victus-intel-core-i5-14th-gen-14450hx-24-gb-512-gb-ssd-windows-11-home-6-graphics-nvidia-geforce-rtx-4050-15-fa2382tx-gaming-laptop/p/itmc8b9497c77521"
+with open("products.json", "r") as f:
+    products = json.load(f)
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
-    page.goto(url, wait_until="networkidle")
-    print(page.title())
+
+    for product in products:
+        print("Checking:", product["url"])
+
+        page.goto(product["url"], wait_until="networkidle")
+
+        text = page.locator("body").inner_text()
+
+        prices = re.findall(r"₹\s?([\d,]+)", text)
+
+        if not prices:
+            print("No prices found")
+            continue
+
+        nums = [int(x.replace(",", "")) for x in prices]
+        lowest = min(nums)
+
+        print("Lowest price found:", lowest)
+
+        if lowest <= product["target_price"]:
+            requests.post(
+                product["https://discord.com/api/webhooks/1523315799996235776/4ULytFxdpqKQZdLCQsgBLnFy7l6MW1yzVFVFoC1PoZnYhHnN3F46h2Bm6WbyJtON-WLS"],
+                json={
+                    "content": f"🔥 Deal Found!\nPrice: ₹{lowest}\n{product['url']}"
+                }
+            )
+
     browser.close()
