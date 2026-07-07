@@ -3,41 +3,51 @@ import json
 import requests
 import re
 
+# Load products
 with open("products.json", "r") as f:
     products = json.load(f)
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
+
     page = browser.new_page()
+    page.set_default_timeout(60000)
 
     for product in products:
-        print("Checking:", product["url"])
+        print(f"Checking: {product['url']}")
 
-        page.goto(
-    product["url"],
-    wait_until="domcontentloaded",
-    timeout=60000
-        )
+        try:
+            page.goto(product["url"], timeout=60000)
 
-        text = page.locator("body").inner_text()
+            text = page.locator("body").inner_text()
 
-        prices = re.findall(r"₹\s?([\d,]+)", text)
+            prices = re.findall(r"₹\s?([\d,]+)", text)
 
-        if not prices:
-            print("No prices found")
-            continue
+            if not prices:
+                print("No price found.")
+                continue
 
-        nums = [int(x.replace(",", "")) for x in prices]
-        lowest = min(nums)
+            prices = [int(x.replace(",", "")) for x in prices]
+            lowest = min(prices)
 
-        print("Lowest price found:", lowest)
+            print(f"Lowest Price: ₹{lowest}")
 
-        if lowest <= product["target_price"]:
-            requests.post(
-                product["https://discord.com/api/webhooks/1523315799996235776/4ULytFxdpqKQZdLCQsgBLnFy7l6MW1yzVFVFoC1PoZnYhHnN3F46h2Bm6WbyJtON-WLS"],
-                json={
-                    "content": f"🔥 Deal Found!\nPrice: ₹{lowest}\n{product['url']}"
-                }
-            )
+            if lowest <= product["target_price"]:
+                print("Deal Found!")
+
+                requests.post(
+                    product["discord_webhook"],
+                    json={
+                        "content": (
+                            f"🔥 **Deal Found!**\n\n"
+                            f"💰 Current Price: ₹{lowest}\n"
+                            f"🎯 Target Price: ₹{product['target_price']}\n"
+                            f"🔗 {product['url']}"
+                        )
+                    }
+                )
+
+        except Exception as e:
+            print("Error:", e)
 
     browser.close()
