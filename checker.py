@@ -14,32 +14,36 @@ with sync_playwright() as p:
     page.set_default_timeout(60000)
 
     for product in products:
-        print(f"Checking: {product['url']}")
+        print("=" * 50)
+        print("Checking:", product["url"])
 
         try:
             page.goto(product["url"], timeout=60000)
 
             text = page.locator("body").inner_text()
 
-            prices = re.findall(r"₹\s?([\d,]+)", text)
+            prices = re.findall(r"₹\s*([\d,]+)", text)
 
             if not prices:
-                print("No price found.")
+                print("❌ No prices found")
                 continue
 
-            prices = [int(x.replace(",", "")) for x in prices]
+            prices = [int(price.replace(",", "")) for price in prices]
+
+            print("All prices found:", prices)
+
             lowest = min(prices)
 
-            print(f"Lowest Price: ₹{lowest}")
+            print("Lowest price:", lowest)
 
             if lowest <= product["target_price"]:
-                print("Deal Found!")
+                print("🔥 Deal Found!")
 
                 requests.post(
                     product["discord_webhook"],
                     json={
                         "content": (
-                            f"🔥 **Deal Found!**\n\n"
+                            f"🔥 **OfferPing Alert**\n\n"
                             f"💰 Current Price: ₹{lowest}\n"
                             f"🎯 Target Price: ₹{product['target_price']}\n"
                             f"🔗 {product['url']}"
