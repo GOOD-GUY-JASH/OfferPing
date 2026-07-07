@@ -13,7 +13,11 @@ with sync_playwright() as p:
     for product in products:
         print("Checking:", product["url"])
 
-        page.goto(product["url"], wait_until="networkidle")
+        page.goto(
+    product["url"],
+    wait_until="domcontentloaded",
+    timeout=60000
+        )
 
         text = page.locator("body").inner_text()
 
