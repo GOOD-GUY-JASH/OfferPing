@@ -3,24 +3,34 @@ import json
 import requests
 import re
 
-# Load products
 with open("products.json", "r") as f:
     products = json.load(f)
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
+    browser = p.chromium.launch(
+        headless=True,
+        args=["--disable-blink-features=AutomationControlled"]
+    )
 
-    page = browser.new_page()
+    page = browser.new_page(
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+    )
+
     page.set_default_timeout(60000)
 
     for product in products:
-        print("=" * 50)
+        print("=" * 60)
         print("Checking:", product["url"])
 
         try:
-            page.goto(product["url"], timeout=60000)
+            page.goto(product["url"], wait_until="domcontentloaded")
+            page.wait_for_timeout(5000)
 
             text = page.locator("body").inner_text()
+
+            print("\n===== PAGE PREVIEW =====")
+            print(text[:5000])
+            print("========================\n")
 
             prices = re.findall(r"₹\s*([\d,]+)", text)
 
@@ -28,13 +38,13 @@ with sync_playwright() as p:
                 print("❌ No prices found")
                 continue
 
-            prices = [int(price.replace(",", "")) for price in prices]
+            prices = [int(x.replace(",", "")) for x in prices]
 
-            print("All prices found:", prices)
+            print("Prices:", prices)
 
             lowest = min(prices)
 
-            print("Lowest price:", lowest)
+            print("Lowest:", lowest)
 
             if lowest <= product["target_price"]:
                 print("🔥 Deal Found!")
@@ -42,16 +52,15 @@ with sync_playwright() as p:
                 requests.post(
                     product["discord_webhook"],
                     json={
-                        "content": (
-                            f"🔥 **OfferPing Alert**\n\n"
-                            f"💰 Current Price: ₹{lowest}\n"
-                            f"🎯 Target Price: ₹{product['target_price']}\n"
-                            f"🔗 {product['url']}"
-                        )
-                    }
+                        "content": f"🔥 Deal Found!\n₹{lowest}\n{product['url']}"
+                    },
+                    timeout=15
                 )
 
+            else:
+                print("❌ Price above target")
+
         except Exception as e:
-            print("Error:", e)
+            print("ERROR:", e)
 
     browser.close()
